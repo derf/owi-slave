@@ -107,7 +107,7 @@ ISR(INT1_vect)
 			EIFR |= _BV(INTF1);
 		}
 		// ~60us - write 0
-		else if (LCNTL > 6) {
+		else if (LCNTL > 15) {
 			if (!LASTCMD)
 				POS++;
 		}

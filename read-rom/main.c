@@ -63,32 +63,46 @@ int main (void)
 	asm volatile ("ldi r30, 0");
 	asm volatile ("ldi r31, 0");
 
-	// 1us
-	while (1) { // 1c
-		asm volatile ("inc r30"); // 1c
-		asm volatile ("adiw r28, 1"); // 2c
-		asm volatile ("wdr"); // 1c
-	}
+	// 1us per cycle
+loop:
+	asm volatile ("inc r30"); // 1c
+	asm volatile ("adiw r28, 1"); // 2c
+	asm volatile ("wdr"); // 1c
+	asm volatile ("nop"); // 1c
+	asm volatile ("nop"); // 1c
+	asm volatile ("nop"); // 1c
+	goto loop;
 
 	return 0;
 }
 
 ISR(INT1_vect)
 {
+	// overhead: 19c (2.4us)
 	if (PIND & _BV(PD3)) {
 
-		asm("out 0x15, r29"); // LCNTH
-		asm("out 0x14, r28"); // LCNTL
-		asm("out 0x13, r30"); // HCNTL
+		asm volatile ("out 0x15, r29"); // LCNTH
+		asm volatile ("out 0x14, r28"); // LCNTL
+		asm volatile ("out 0x13, r30"); // HCNTL
 
 		// > 256us - reset
 		if (LCNTH > 0) {
 			DDRD = _BV(PD3);
-			// 120us
-			for (CNT = 0; CNT < 120; CNT++) {
-				asm volatile ("wdr");
-			}
+
+			// 120us loop - r31 / r30 need not be preserved
+			asm volatile ("ldi r31, 0");
+			asm volatile ("ldi r30, 120"); // Z = 120
+			asm volatile ("wdr"); // <-----
+			asm volatile ("wdr");
+			asm volatile ("wdr");
+			asm volatile ("sbiw r30, 1");
+			asm volatile ("cp r30, r1");
+			asm volatile ("brne .-12"); // -^
+
 			DDRD = 0;
+			LASTCMD = 0;
+			BUF = 0;
+			POS = 0;
 			asm volatile ("wdr");
 			EIFR |= _BV(INTF1);
 		}
@@ -109,7 +123,6 @@ ISR(INT1_vect)
 			POS = 1;
 			APOS = 0;
 			BYTE = ~ADDR8;
-			MCUCR = _BV(ISC11);
 			EIFR |= _BV(INTF1);
 		}
 
@@ -122,10 +135,17 @@ ISR(INT1_vect)
 			if (BYTE & POS) {
 
 				DDRD = _BV(PD3);
-				// 15us
-				for (CNT = 0; CNT < 18; CNT++) {
-					asm volatile ("wdr");
-				}
+
+				// 15us loop - r31 / r30 need not be preserved
+				asm volatile ("ldi r31, 0");
+				asm volatile ("ldi r30, 15"); // Z = 120
+				asm volatile ("wdr"); // <-----
+				asm volatile ("wdr");
+				asm volatile ("wdr");
+				asm volatile ("sbiw r30, 1");
+				asm volatile ("cp r30, r1");
+				asm volatile ("brne .-12"); // -^
+
 				DDRD = 0;
 				asm volatile ("wdr");
 				EIFR |= _BV(INTF1);
@@ -153,7 +173,6 @@ ISR(INT1_vect)
 
 				else if (APOS == 8) {
 					LASTCMD = 0;
-					MCUCR = _BV(ISC10);
 					POS = 0;
 				}
 			}

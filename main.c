@@ -6,14 +6,15 @@
  * Onewire iButton / SmartButton slave.
  * Has the 64bit ID set below
  * (corresponds to <https://wiki.chaosdorf.de/images/f/fc/Smartbutton.jpg>).
+ * Note: The bytes are sent in reversed order. This has also been observed
+ * on off-the-shelf smartbuttons / iButtons.
  *
  * Only supports non-overdrive READ ROM. Does not hold any data.
+ * SEARCH ROM Support is work in progress. Command byte readout is pretty
+ * broken right now.
  *
  * Tested and working with a DS2482. Should mostly adhere to the standard,
  * but nothing is guaranteed.
- *
- * Any unexpected input (SKIP ROM, overdriv, ...) may cause a hangup requiring
- * an AVR reset.
  */
 
 #define ADDR1 0xC4

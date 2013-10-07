@@ -123,6 +123,7 @@ ISR(INT1_vect)
 			POS = 1;
 			APOS = 0;
 			BYTE = ~ADDR8;
+			EEAR = 0;
 			EIFR |= _BV(INTF1);
 		}
 
@@ -176,6 +177,60 @@ ISR(INT1_vect)
 					POS = 0;
 				}
 			}
+		}
+		else if (LASTCMD == 0xf0) {
+
+			if (((EEAR == 0) && (BYTE & POS))
+					|| ((EEAR == 1) && !(BYTE & POS))) {
+			//if (BYTE & POS) {
+				DDRD = _BV(PD3);
+
+				// 15us loop - r31 / r30 need not be preserved
+				asm volatile ("ldi r31, 0");
+				asm volatile ("ldi r30, 15"); // Z = 120
+				asm volatile ("wdr"); // <-----
+				asm volatile ("wdr");
+				asm volatile ("wdr");
+				asm volatile ("sbiw r30, 1");
+				asm volatile ("cp r30, r1");
+				asm volatile ("brne .-12"); // -^
+
+				DDRD = 0;
+				asm volatile ("wdr");
+				EIFR |= _BV(INTF1);
+			}
+			if (EEAR < 2) {
+				EEAR++;
+			}
+			else if (POS != 0x80) {
+				POS <<= 1;
+				EEAR = 0;
+			}
+			else {
+				EEAR = 0;
+				APOS++;
+				POS = 1;
+				if (APOS == 1)
+					BYTE = ~ADDR7;
+				else if (APOS == 2)
+					BYTE = ~ADDR6;
+				else if (APOS == 3)
+					BYTE = ~ADDR5;
+				else if (APOS == 4)
+					BYTE = ~ADDR4;
+				else if (APOS == 5)
+					BYTE = ~ADDR3;
+				else if (APOS == 6)
+					BYTE = ~ADDR2;
+				else if (APOS == 7)
+					BYTE = ~ADDR1;
+
+				else if (APOS == 8) {
+					LASTCMD = 0;
+					POS = 0;
+				}
+			}
+
 		}
 		asm volatile ("ldi r29, 0"); // LCNTH = 0
 		asm volatile ("ldi r28, 1"); // LCNTL = 1

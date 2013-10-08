@@ -40,6 +40,27 @@
 #define APOS OCR1B
 #define BYTE EEDR
 
+
+#define delay_us_Y(delay) \
+	asm volatile ("ldi r29, 0"); \
+	asm volatile ("ldi r28, %0" : : "M" (delay)); \
+	asm volatile ("wdr"); \
+	asm volatile ("wdr"); \
+	asm volatile ("wdr"); \
+	asm volatile ("sbiw r28, 1"); \
+	asm volatile ("cp r28, r1"); \
+	asm volatile ("brne .-12");
+
+#define delay_us_Z(delay) \
+	asm volatile ("ldi r31, 0"); \
+	asm volatile ("ldi r30, %0" : : "M" (delay)); \
+	asm volatile ("wdr"); \
+	asm volatile ("wdr"); \
+	asm volatile ("wdr");  \
+	asm volatile ("sbiw r30, 1"); \
+	asm volatile ("cp r30, r1"); \
+	asm volatile ("brne .-12");
+
 int main (void)
 {
 	/* watchdog reset after ~4 seconds */
@@ -92,15 +113,7 @@ ISR(INT1_vect)
 		if (LCNTH > 0) {
 			DDRD = _BV(PD3);
 
-			// 120us loop - r31 / r30 need not be preserved
-			asm volatile ("ldi r31, 0");
-			asm volatile ("ldi r30, 120"); // Z = 120
-			asm volatile ("wdr"); // <-----
-			asm volatile ("wdr");
-			asm volatile ("wdr");
-			asm volatile ("sbiw r30, 1");
-			asm volatile ("cp r30, r1");
-			asm volatile ("brne .-12"); // -^
+			delay_us_Z(120);
 
 			DDRD = 0;
 			LASTCMD = 0;
@@ -140,15 +153,7 @@ ISR(INT1_vect)
 
 				DDRD = _BV(PD3);
 
-				// 15us loop - r31 / r28 need not be preserved
-				asm volatile ("ldi r31, 0");
-				asm volatile ("ldi r28, 15"); // Z = 15
-				asm volatile ("wdr"); // <-----
-				asm volatile ("wdr");
-				asm volatile ("wdr");
-				asm volatile ("sbiw r28, 1");
-				asm volatile ("cp r28, r1");
-				asm volatile ("brne .-12"); // -^
+				delay_us_Y(15);
 
 				DDRD = 0;
 				asm volatile ("wdr");
@@ -201,15 +206,7 @@ ISR(INT1_vect)
 			//if (BYTE & POS) {
 				DDRD = _BV(PD3);
 
-				// 15us loop - r29 / r28 need not be preserved
-				asm volatile ("ldi r29, 0");
-				asm volatile ("ldi r28, 15"); // Z = 15
-				asm volatile ("wdr"); // <-----
-				asm volatile ("wdr");
-				asm volatile ("wdr");
-				asm volatile ("sbiw r28, 1");
-				asm volatile ("cp r28, r1");
-				asm volatile ("brne .-12"); // -^
+				delay_us_Y(15);
 
 				DDRD = 0;
 				asm volatile ("wdr");

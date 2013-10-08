@@ -1,6 +1,6 @@
 # owi-slave
 
-Implementation of an One Wire Interface slave device on an ATTiny 2313 without
+Implementation of an One Wire Interface slave device on an ATTiny 2313A without
 external clock.
 
 This code is a work in progress. The Command readout is not working realibly.

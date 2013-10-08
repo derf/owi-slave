@@ -1,4 +1,3 @@
-MCU ?= attiny2313
 AVRDUDE_PROGRAMMER ?= usbasp
 
 AVRCC ?= avr-gcc
@@ -7,8 +6,8 @@ AVRNM ?= avr-nm
 AVROBJCOPY ?= avr-objcopy
 AVROBJDUMP ?= avr-objdump
 
-CFLAGS += -mmcu=attiny2313 -DF_CPU=20000000UL
-#CFLAGS += -gdwarf-2 -fverbose-asm -save-temps
+CFLAGS += -mmcu=attiny2313a -DF_CPU=20000000UL
+#CFLAGS += -gdwarf-2 -fverbose-asm
 CFLAGS += -I. -std=gnu99 -Os -Wall -Wextra -pedantic
 CFLAGS += -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
 # r28 .. r31 hold the microsecond counters
@@ -31,7 +30,7 @@ main.elf: main.c
 	avr-size -d $@
 
 program: main.hex main.eep
-	${AVRFLASH} -p ${MCU} -c ${AVRDUDE_PROGRAMMER} ${AVRFLAGS}
+	${AVRFLASH} -p attiny2313 -c ${AVRDUDE_PROGRAMMER} ${AVRFLAGS}
 
 secsize: main.elf
 	${AVROBJDUMP} -hw -j.text -j.bss -j.data main.elf

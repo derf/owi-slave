@@ -44,13 +44,15 @@ int main (void)
 {
 	/* watchdog reset after ~4 seconds */
 	MCUSR &= ~_BV(WDRF);
-	WDTCSR = _BV(WDCE) | _BV(WDE);
-	WDTCSR = _BV(WDE) | _BV(WDP3);
+	WDTCR = _BV(WDCE) | _BV(WDE);
+	WDTCR = _BV(WDE) | _BV(WDP3);
 
 	MCUCR = _BV(ISC10);
 	GIMSK = _BV(INT1);
 
 	ACSR |= _BV(ACD);
+
+	PRR = _BV(PRUSI) | _BV(PRUSART);
 
 	POS = 0;
 	APOS = 0;
@@ -138,14 +140,14 @@ ISR(INT1_vect)
 
 				DDRD = _BV(PD3);
 
-				// 15us loop - r31 / r30 need not be preserved
+				// 15us loop - r31 / r28 need not be preserved
 				asm volatile ("ldi r31, 0");
-				asm volatile ("ldi r30, 15"); // Z = 120
+				asm volatile ("ldi r28, 15"); // Z = 15
 				asm volatile ("wdr"); // <-----
 				asm volatile ("wdr");
 				asm volatile ("wdr");
-				asm volatile ("sbiw r30, 1");
-				asm volatile ("cp r30, r1");
+				asm volatile ("sbiw r28, 1");
+				asm volatile ("cp r28, r1");
 				asm volatile ("brne .-12"); // -^
 
 				DDRD = 0;
@@ -156,27 +158,38 @@ ISR(INT1_vect)
 				POS <<= 1;
 			}
 			else {
-				APOS++;
 				POS = 1;
-				if (APOS == 1)
-					BYTE = ~ADDR7;
-				else if (APOS == 2)
-					BYTE = ~ADDR6;
-				else if (APOS == 3)
-					BYTE = ~ADDR5;
-				else if (APOS == 4)
-					BYTE = ~ADDR4;
-				else if (APOS == 5)
-					BYTE = ~ADDR3;
-				else if (APOS == 6)
-					BYTE = ~ADDR2;
-				else if (APOS == 7)
-					BYTE = ~ADDR1;
+				asm volatile ("in r28, 0x28"); // APOS
+				asm volatile ("inc r28"); // APOS++
+				asm volatile ("cpi r28, 1");
+				asm volatile ("brne .+2");
+				asm volatile ("ldi r29, %0" : : "i" (~ADDR7));
+				asm volatile ("cpi r28, 2");
+				asm volatile ("brne .+2");
+				asm volatile ("ldi r29, %0" : : "i" (~ADDR6));
+				asm volatile ("cpi r28, 3");
+				asm volatile ("brne .+2");
+				asm volatile ("ldi r29, %0" : : "i" (~ADDR5));
+				asm volatile ("cpi r28, 4");
+				asm volatile ("brne .+2");
+				asm volatile ("ldi r29, %0" : : "i" (~ADDR4));
+				asm volatile ("cpi r28, 5");
+				asm volatile ("brne .+2");
+				asm volatile ("ldi r29, %0" : : "i" (~ADDR3));
+				asm volatile ("cpi r28, 6");
+				asm volatile ("brne .+2");
+				asm volatile ("ldi r29, %0" : : "i" (~ADDR2));
+				asm volatile ("cpi r28, 7");
+				asm volatile ("brne .+2");
+				asm volatile ("ldi r29, %0" : : "i" (~ADDR1));
+				asm volatile ("out 0x1d, r29"); // BYTE
 
-				else if (APOS == 8) {
-					LASTCMD = 0;
-					POS = 0;
-				}
+				asm volatile ("cpi r28, 8");
+				asm volatile ("brne .+4");
+				asm volatile ("out 0x3c, r1"); // LASTCMD - OC0B
+				asm volatile ("out 0x2a, r1"); // BUF - OC1A
+
+				asm volatile ("out 0x28, r28"); // APOS
 			}
 		}
 		else if (LASTCMD == 0xf0) {
@@ -186,14 +199,14 @@ ISR(INT1_vect)
 			//if (BYTE & POS) {
 				DDRD = _BV(PD3);
 
-				// 15us loop - r31 / r30 need not be preserved
-				asm volatile ("ldi r31, 0");
-				asm volatile ("ldi r30, 15"); // Z = 120
+				// 15us loop - r29 / r28 need not be preserved
+				asm volatile ("ldi r29, 0");
+				asm volatile ("ldi r28, 15"); // Z = 15
 				asm volatile ("wdr"); // <-----
 				asm volatile ("wdr");
 				asm volatile ("wdr");
-				asm volatile ("sbiw r30, 1");
-				asm volatile ("cp r30, r1");
+				asm volatile ("sbiw r28, 1");
+				asm volatile ("cp r28, r1");
 				asm volatile ("brne .-12"); // -^
 
 				DDRD = 0;

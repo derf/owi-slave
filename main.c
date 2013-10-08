@@ -3,11 +3,7 @@
 #include <stdlib.h>
 
 /*
- * Onewire iButton / SmartButton slave.
- * Has the 64bit ID set below
- * (corresponds to <https://wiki.chaosdorf.de/images/f/fc/Smartbutton.jpg>).
- * Note: The bytes are sent in reversed order. This has also been observed
- * on off-the-shelf smartbuttons / iButtons.
+ * Onewire iButton / SmartButton slave.  Has the 64bit ID set below.
  *
  * Only supports non-overdrive READ ROM. Does not hold any data.
  * SEARCH ROM Support is work in progress. Command byte readout is pretty
@@ -17,6 +13,15 @@
  * but nothing is guaranteed.
  */
 
+
+
+/*
+ * Set the 64bit ID (including 8bit CRC) here, in the order in which they are
+ * printed on the button (see
+ * <https://wiki.chaosdorf.de/images/f/fc/Smartbutton.jpg>).
+ * Note: The bytes are sent in reversed order. This has also been observed
+ * on off-the-shelf smartbuttons / iButtons.
+ */
 #define ADDR1 0xC4
 #define ADDR2 0x00
 #define ADDR3 0x00
@@ -26,8 +31,34 @@
 #define ADDR7 0x04
 #define ADDR8 0x01
 
-// HCNT: r30 (ZL), r31 (ZH)
-// LCNT: r28 (YL), r29 (YH)
+
+/*
+ * You should not need to change things below, unless you're not using PD3
+ * as OWI data pin.
+ */
+
+
+
+
+/*
+ * RAM access is time-expensive and requires the X / Y / Z registers. Since
+ * we have neither time nor many available registers (Y and Z are used
+ * otherwise during the main loop), all program variables are saved in
+ * registers.
+ *
+ * The HCNT / LCNT registers count how many microseconds have passed
+ * since the last low-to-high / high-to-low transition. In the main loop,
+ * only r28 .. r31 (Y and Z) are incremented (precisely once per microsecond),
+ * their GPIO counterparts are used in the ISR and synced with the registers
+ * both at start and end.
+ *
+ * Note: The compiler knows that these registers are forbiden thanks to
+ * -ffixed-28 ... -ffixed-31
+ *
+ * HCNT = r30 (ZL), r31 (ZH)
+ * LCNT = r28 (YL), r29 (YH)
+ */
+
 
 #define LCNTH GPIOR2
 #define LCNTL GPIOR1
@@ -63,11 +94,15 @@
 
 int main (void)
 {
-	/* watchdog reset after ~4 seconds */
+	/* watchdog reset after ~4 seconds - just in case */
 	MCUSR &= ~_BV(WDRF);
 	WDTCR = _BV(WDCE) | _BV(WDE);
 	WDTCR = _BV(WDE) | _BV(WDP3);
 
+	/*
+	 * rising edge for reset/presence signals and reading data,
+	 * falling edge for writing.
+	 */
 	MCUCR = _BV(ISC10);
 	GIMSK = _BV(INT1);
 
@@ -87,7 +122,9 @@ int main (void)
 	asm volatile ("ldi r30, 0");
 	asm volatile ("ldi r31, 0");
 
-	// 1us per cycle
+	/*
+	 * takes exactly 1us per cycle
+	 */
 loop:
 	asm volatile ("inc r30"); // 1c
 	asm volatile ("adiw r28, 1"); // 2c
@@ -105,11 +142,16 @@ ISR(INT1_vect)
 	// overhead: 19c (2.4us)
 	if (PIND & _BV(PD3)) {
 
+		/*
+		 * Make LCNT / HCNT available to the C compiler
+		 */
 		asm volatile ("out %0, r29" : : "M" (_SFR_IO_ADDR(LCNTH)));
 		asm volatile ("out %0, r28" : : "M" (_SFR_IO_ADDR(LCNTL)));
 		asm volatile ("out %0, r30" : : "M" (_SFR_IO_ADDR(HCNTL)));
 
-		// > 256us - reset
+		/*
+		 * Line was high for >256us - got reset signal, send presence
+		 */
 		if (LCNTH > 0) {
 			DDRD = _BV(PD3);
 
@@ -122,18 +164,27 @@ ISR(INT1_vect)
 			asm volatile ("wdr");
 			EIFR |= _BV(INTF1);
 		}
-		// ~60us - write 0
+		/*
+		 * Line was high for > 15us - got a "write 0"
+		 */
 		else if (LCNTL > 15) {
 			if (!LASTCMD)
 				POS++;
 		}
-		// < ~15us - write 1 OR read
+		/*
+		 * Line was high for <= 15us - got a "write 1". Might also be a
+		 * "read", so only do stuff if we don't have a command set
+		 */
 		else {
 			if (!LASTCMD) {
 				BUF |= _BV(POS);
 				POS++;
 			}
 		}
+		/*
+		 * We received 8 command bits. Store the command and switch to
+		 * write mode (also, store the first byte to be sent)
+		 */
 		if (!LASTCMD && (POS == 7)) {
 			LASTCMD = BUF;
 			POS = 1;
@@ -149,6 +200,10 @@ ISR(INT1_vect)
 	else {
 		if (LASTCMD == 0x33) {
 
+			/*
+			 * ~ADDRx & POS == 1 -> ADDRx has a 0 bit which is sent by
+			 * keeping the data line low after the master released it.
+			 */
 			if (BYTE & POS) {
 
 				DDRD = _BV(PD3);
@@ -164,39 +219,52 @@ ISR(INT1_vect)
 			}
 			else {
 				POS = 1;
-				// store APOS in r28 (written back at the end)
-				// and BYTE in r29 (also written back at the end)
+				/*
+				 * Put next ADDRx into BYTE or reset state if we sent all 8
+				 * bytes. Again, a RAM array is too expensive, and both
+				 * if/elseif and case/when chains are expensive too. What
+				 * happens here is the following:
+				 *
+				 * APOS is stored in r28, BYTE in r29 (both are written
+				 * back at the end of the block). Then APOS is checked for
+				 * 1 / 2 / 3 /... in turn and the corresponding address set
+				 * where appropriate. Since there are no shortcuts, this
+				 * block has a constant execution time of 4us
+				 * (compared to ~10us with an if/else if chain and -Os)
+				 */
 				asm volatile ("in r28, %0" : : "M" (_SFR_IO_ADDR(APOS)));
-				asm volatile ("inc r28"); // APOS++
+				asm volatile ("inc r28");     // APOS++
 				asm volatile ("cpi r28, 1");
-				asm volatile ("brne .+2");
+				asm volatile ("brne .+2");   // if (APOS == 1) {
 				asm volatile ("ldi r29, %0" : : "i" (~ADDR7));
-				asm volatile ("cpi r28, 2");
-				asm volatile ("brne .+2");
+				asm volatile ("cpi r28, 2"); // }
+				asm volatile ("brne .+2");   // else if (APOS == 2) {
 				asm volatile ("ldi r29, %0" : : "i" (~ADDR6));
-				asm volatile ("cpi r28, 3");
-				asm volatile ("brne .+2");
+				asm volatile ("cpi r28, 3"); // }
+				asm volatile ("brne .+2");   // else if (APOS == 3) {
 				asm volatile ("ldi r29, %0" : : "i" (~ADDR5));
-				asm volatile ("cpi r28, 4");
-				asm volatile ("brne .+2");
+				asm volatile ("cpi r28, 4"); // }
+				asm volatile ("brne .+2");   // else if (APOS == 4) {
 				asm volatile ("ldi r29, %0" : : "i" (~ADDR4));
-				asm volatile ("cpi r28, 5");
-				asm volatile ("brne .+2");
+				asm volatile ("cpi r28, 5"); // }
+				asm volatile ("brne .+2");   // else if (APOS == 5) {
 				asm volatile ("ldi r29, %0" : : "i" (~ADDR3));
-				asm volatile ("cpi r28, 6");
-				asm volatile ("brne .+2");
+				asm volatile ("cpi r28, 6"); // }
+				asm volatile ("brne .+2");   // else if (APOS == 6) {
 				asm volatile ("ldi r29, %0" : : "i" (~ADDR2));
-				asm volatile ("cpi r28, 7");
-				asm volatile ("brne .+2");
+				asm volatile ("cpi r28, 7"); // }
+				asm volatile ("brne .+2");   // else if (APOS == 7) {
 				asm volatile ("ldi r29, %0" : : "i" (~ADDR1));
-				asm volatile ("out %0, r29" : : "M" (_SFR_IO_ADDR(BYTE)));
+				                             // }
 
 				asm volatile ("cpi r28, 8");
-				asm volatile ("brne .+4");
+				asm volatile ("brne .+4");   // if (APOS == 8) {
 				asm volatile ("out %0, r1" : : "M" (_SFR_IO_ADDR(LASTCMD)));
 				asm volatile ("out %0, r1" : : "M" (_SFR_IO_ADDR(BUF)));
+				                             // }
 
 				asm volatile ("out %0, r28" : : "M" (_SFR_IO_ADDR(APOS)));
+				asm volatile ("out %0, r29" : : "M" (_SFR_IO_ADDR(BYTE)));
 			}
 		}
 		else if (LASTCMD == 0xf0) {

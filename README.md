@@ -4,7 +4,11 @@ Implementation of an One Wire Interface slave device on an ATTiny 2313A without
 external clock.
 
 This code is a work in progress. The Command readout is not working realibly.
-A schematic will follow, until then: PD3 is onewire data.
+Though the schematic suggests bus-powered operation, the AVR's power
+consumption may be too high for this to work. If connecting the AVR causes the
+bus voltage to drop below 3V, consider replacing the capacitors with a ~4.5V
+battery. Do not use a mains power supply -- it may not have the same GND as
+the 1-Wire bus.
 
 # Building
 

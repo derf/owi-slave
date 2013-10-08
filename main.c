@@ -84,9 +84,9 @@ ISR(INT1_vect)
 	// overhead: 19c (2.4us)
 	if (PIND & _BV(PD3)) {
 
-		asm volatile ("out 0x15, r29"); // LCNTH
-		asm volatile ("out 0x14, r28"); // LCNTL
-		asm volatile ("out 0x13, r30"); // HCNTL
+		asm volatile ("out %0, r29" : : "M" (_SFR_IO_ADDR(LCNTH)));
+		asm volatile ("out %0, r28" : : "M" (_SFR_IO_ADDR(LCNTL)));
+		asm volatile ("out %0, r30" : : "M" (_SFR_IO_ADDR(HCNTL)));
 
 		// > 256us - reset
 		if (LCNTH > 0) {
@@ -159,7 +159,9 @@ ISR(INT1_vect)
 			}
 			else {
 				POS = 1;
-				asm volatile ("in r28, 0x28"); // APOS
+				// store APOS in r28 (written back at the end)
+				// and BYTE in r29 (also written back at the end)
+				asm volatile ("in r28, %0" : : "M" (_SFR_IO_ADDR(APOS)));
 				asm volatile ("inc r28"); // APOS++
 				asm volatile ("cpi r28, 1");
 				asm volatile ("brne .+2");
@@ -182,14 +184,14 @@ ISR(INT1_vect)
 				asm volatile ("cpi r28, 7");
 				asm volatile ("brne .+2");
 				asm volatile ("ldi r29, %0" : : "i" (~ADDR1));
-				asm volatile ("out 0x1d, r29"); // BYTE
+				asm volatile ("out %0, r29" : : "M" (_SFR_IO_ADDR(BYTE)));
 
 				asm volatile ("cpi r28, 8");
 				asm volatile ("brne .+4");
-				asm volatile ("out 0x3c, r1"); // LASTCMD - OC0B
-				asm volatile ("out 0x2a, r1"); // BUF - OC1A
+				asm volatile ("out %0, r1" : : "M" (_SFR_IO_ADDR(LASTCMD)));
+				asm volatile ("out %0, r1" : : "M" (_SFR_IO_ADDR(BUF)));
 
-				asm volatile ("out 0x28, r28"); // APOS
+				asm volatile ("out %0, r28" : : "M" (_SFR_IO_ADDR(APOS)));
 			}
 		}
 		else if (LASTCMD == 0xf0) {

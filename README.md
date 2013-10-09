@@ -1,9 +1,8 @@
 # owi-slave
 
 Implementation of an One Wire Interface slave device on an ATTiny 2313A without
-external clock.
+external clock. Work-in-progress.
 
-This code is a work in progress. The Command readout is not working realibly.
 Though the schematic suggests bus-powered operation, the AVR's power
 consumption may be too high for this to work. If connecting the AVR causes the
 bus voltage to drop below 3V, consider replacing the capacitors with a ~4.5V
@@ -20,9 +19,6 @@ Successfully tested on a DS2482-100 Single Channel 1-Wire Master.
 Tests with a commercially available iButton reader will follow soon.
 
 * Read ROM (0x34) with 64bit identifier
-
-## work in progress
-
 * Search ROM (0xf0) with 64bit identifier
 
 ## TODO

@@ -150,37 +150,37 @@ ISR(INT1_vect)
 			LASTCMD = 0;
 			BUF = 0;
 			POS = 0;
+			APOS = 0;
 			asm volatile ("wdr");
 			EIFR |= _BV(INTF1);
 		}
-		/*
-		 * Line was high for > 15us - got a "write 0"
-		 */
-		else if (LCNTL > 15) {
-			if (!LASTCMD)
+		else if (!LASTCMD) {
+			/*
+			* Line was high for > 15us - got a "write 0"
+			*/
+			if (LCNTL > 15) {
 				POS++;
-		}
-		/*
-		 * Line was high for <= 15us - got a "write 1". Might also be a
-		 * "read", so only do stuff if we don't have a command set
-		 */
-		else {
-			if (!LASTCMD) {
+			}
+			/*
+			* Line was high for <= 15us - got a "write 1". Might also be a
+			* "read", so only do stuff if we don't have a command set
+			*/
+			else {
 				BUF |= _BV(POS);
 				POS++;
 			}
-		}
-		/*
-		 * We received 8 command bits. Store the command and switch to
-		 * write mode (also, store the first byte to be sent)
-		 */
-		if (!LASTCMD && (POS == 7)) {
-			LASTCMD = BUF;
-			POS = 1;
-			APOS = 0;
-			BYTE = ~ADDR8;
-			EEAR = 0;
-			EIFR |= _BV(INTF1);
+			/*
+			* We received 8 command bits. Store the command and switch to
+			* write mode (also, store the first byte to be sent)
+			*/
+			if (POS == 7) {
+				LASTCMD = BUF;
+				POS = 1;
+				APOS = 0;
+				BYTE = ~ADDR8;
+				EEAR = 0;
+				EIFR |= _BV(INTF1);
+			}
 		}
 	}
 	else {

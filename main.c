@@ -46,23 +46,21 @@
  * otherwise during the main loop), all program variables are saved in
  * registers.
  *
- * The HCNT / LCNT registers count how many microseconds have passed
+ * The LCNT registers count how many microseconds have passed
  * since the last low-to-high / high-to-low transition. In the main loop,
- * only r28 .. r31 (Y and Z) are incremented (precisely once per microsecond),
+ * only r28 and r29 (Y) are incremented (precisely once per microsecond),
  * their GPIO counterparts are used in the ISR and synced with the registers
  * both at start and end.
  *
  * Note: The compiler knows that these registers are forbiden thanks to
- * -ffixed-28 ... -ffixed-31
+ * -ffixed-28 -ffixed-29
  *
- * HCNT = r30 (ZL), r31 (ZH)
  * LCNT = r28 (YL), r29 (YH)
  */
 
 
 #define LCNTH GPIOR2
 #define LCNTL GPIOR1
-#define HCNTL GPIOR0
 
 #define CNT USIDR
 #define LASTCMD OCR0B
@@ -80,16 +78,6 @@
 	asm volatile ("wdr"); \
 	asm volatile ("sbiw r28, 1"); \
 	asm volatile ("cp r28, r1"); \
-	asm volatile ("brne .-12");
-
-#define delay_us_Z(delay) \
-	asm volatile ("ldi r31, 0"); \
-	asm volatile ("ldi r30, %0" : : "M" (delay)); \
-	asm volatile ("wdr"); \
-	asm volatile ("wdr"); \
-	asm volatile ("wdr");  \
-	asm volatile ("sbiw r30, 1"); \
-	asm volatile ("cp r30, r1"); \
 	asm volatile ("brne .-12");
 
 int main (void)
@@ -119,20 +107,18 @@ int main (void)
 
 	asm volatile ("ldi r28, 0");
 	asm volatile ("ldi r29, 0");
-	asm volatile ("ldi r30, 0");
-	asm volatile ("ldi r31, 0");
 
 	/*
 	 * takes exactly 1us per cycle
 	 */
 loop:
-	asm volatile ("inc r30"); // 1c
 	asm volatile ("adiw r28, 1"); // 2c
 	asm volatile ("wdr"); // 1c
 	asm volatile ("nop"); // 1c
 	asm volatile ("nop"); // 1c
 	asm volatile ("nop"); // 1c
-	goto loop;
+	asm volatile ("nop"); // 1c
+	goto loop; // 1c
 
 	return 0;
 }
@@ -143,11 +129,10 @@ ISR(INT1_vect)
 	if (PIND & _BV(PD3)) {
 
 		/*
-		 * Make LCNT / HCNT available to the C compiler
+		 * Make LCNT available to the C compiler
 		 */
 		asm volatile ("out %0, r29" : : "M" (_SFR_IO_ADDR(LCNTH)));
 		asm volatile ("out %0, r28" : : "M" (_SFR_IO_ADDR(LCNTL)));
-		asm volatile ("out %0, r30" : : "M" (_SFR_IO_ADDR(HCNTL)));
 
 		/*
 		 * Line was high for >256us - got reset signal, send presence
@@ -155,7 +140,11 @@ ISR(INT1_vect)
 		if (LCNTH > 0) {
 			DDRD = _BV(PD3);
 
-			delay_us_Z(120);
+			/*
+			 * Y register is no longer needed at this point and may be
+			 * overwritten.
+			 */
+			delay_us_Y(120);
 
 			DDRD = 0;
 			LASTCMD = 0;
@@ -193,9 +182,6 @@ ISR(INT1_vect)
 			EEAR = 0;
 			EIFR |= _BV(INTF1);
 		}
-
-
-		asm volatile ("ldi r30, 1"); // HCNTL = 1
 	}
 	else {
 		if (LASTCMD == 0x33) {

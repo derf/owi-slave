@@ -10,8 +10,8 @@ CFLAGS += -mmcu=attiny2313a -DF_CPU=20000000UL
 #CFLAGS += -gdwarf-2 -fverbose-asm
 CFLAGS += -I. -std=gnu99 -Os -Wall -Wextra -pedantic
 CFLAGS += -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
-# r28 .. r31 hold the microsecond counters
-CFLAGS += -ffixed-28 -ffixed-29 -ffixed-30 -ffixed-31
+# r28 / r29 hold the microsecond counters
+CFLAGS += -ffixed-28 -ffixed-29
 CFLAGS += -fwhole-program -flto -mstrict-X
 
 AVRFLAGS += -U lfuse:w:0xe4:m -U hfuse:w:0xdf:m -U efuse:w:0xff:m

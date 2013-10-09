@@ -5,10 +5,6 @@
 /*
  * Onewire iButton / SmartButton slave.  Has the 64bit ID set below.
  *
- * Only supports non-overdrive READ ROM. Does not hold any data.
- * SEARCH ROM Support is work in progress. Command byte readout is pretty
- * broken right now.
- *
  * Tested and working with a DS2482. Should mostly adhere to the standard,
  * but nothing is guaranteed.
  */
@@ -259,7 +255,6 @@ ISR(INT1_vect)
 
 			if (((EEAR == 0) && (BYTE & POS))
 					|| ((EEAR == 1) && !(BYTE & POS))) {
-			//if (BYTE & POS) {
 				DDRD = _BV(PD3);
 
 				delay_us_Y(15);
@@ -277,22 +272,44 @@ ISR(INT1_vect)
 			}
 			else {
 				EEAR = 0;
-				APOS++;
 				POS = 1;
-				if (APOS == 1)
-					BYTE = ~ADDR7;
-				else if (APOS == 2)
-					BYTE = ~ADDR6;
-				else if (APOS == 3)
-					BYTE = ~ADDR5;
-				else if (APOS == 4)
-					BYTE = ~ADDR4;
-				else if (APOS == 5)
-					BYTE = ~ADDR3;
-				else if (APOS == 6)
-					BYTE = ~ADDR2;
-				else if (APOS == 7)
-					BYTE = ~ADDR1;
+
+				/*
+				 * See comments above
+				 */
+				asm volatile ("in r28, %0" : : "M" (_SFR_IO_ADDR(APOS)));
+				asm volatile ("inc r28");     // APOS++
+				asm volatile ("cpi r28, 1");
+				asm volatile ("brne .+2");   // if (APOS == 1) {
+				asm volatile ("ldi r29, %0" : : "i" (~ADDR7));
+				asm volatile ("cpi r28, 2"); // }
+				asm volatile ("brne .+2");   // else if (APOS == 2) {
+				asm volatile ("ldi r29, %0" : : "i" (~ADDR6));
+				asm volatile ("cpi r28, 3"); // }
+				asm volatile ("brne .+2");   // else if (APOS == 3) {
+				asm volatile ("ldi r29, %0" : : "i" (~ADDR5));
+				asm volatile ("cpi r28, 4"); // }
+				asm volatile ("brne .+2");   // else if (APOS == 4) {
+				asm volatile ("ldi r29, %0" : : "i" (~ADDR4));
+				asm volatile ("cpi r28, 5"); // }
+				asm volatile ("brne .+2");   // else if (APOS == 5) {
+				asm volatile ("ldi r29, %0" : : "i" (~ADDR3));
+				asm volatile ("cpi r28, 6"); // }
+				asm volatile ("brne .+2");   // else if (APOS == 6) {
+				asm volatile ("ldi r29, %0" : : "i" (~ADDR2));
+				asm volatile ("cpi r28, 7"); // }
+				asm volatile ("brne .+2");   // else if (APOS == 7) {
+				asm volatile ("ldi r29, %0" : : "i" (~ADDR1));
+				                             // }
+
+				asm volatile ("cpi r28, 8");
+				asm volatile ("brne .+4");   // if (APOS == 8) {
+				asm volatile ("out %0, r1" : : "M" (_SFR_IO_ADDR(LASTCMD)));
+				asm volatile ("out %0, r1" : : "M" (_SFR_IO_ADDR(BUF)));
+				                             // }
+
+				asm volatile ("out %0, r28" : : "M" (_SFR_IO_ADDR(APOS)));
+				asm volatile ("out %0, r29" : : "M" (_SFR_IO_ADDR(BYTE)));
 			}
 
 		}

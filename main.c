@@ -56,12 +56,39 @@
 #define LCNTH GPIOR2
 #define LCNTL GPIOR1
 
-#define CNT USIDR
+/*
+ * The last complete command byte received from the master. Once this is
+ * set, we start writing data onto the bus. Reset at bus resets and once a
+ * command is done
+ */
 #define LASTCMD OCR0B
+
+/*
+ * command buffer, always initialized to 0
+ */
 #define BUF OCR0A
+
+/*
+ * bitmask for the current buffer (either BUF or BYTE) position.
+ * Left-shifted after each bit
+ */
 #define POS OCR1A
+
+/*
+ * Position in the 8-byte address sequence
+ */
 #define APOS OCR1B
+
+/*
+ * current byte in this sequence
+ */
 #define BYTE EEDR
+
+/*
+ * the SEARCH ROM command consits of three steps: send a bit of our address,
+ * send the inverted bit of our address, receive the bit the master chose
+ * to proceed with. the current position in this cycle is stored here
+ */
 #define SEARCHSTEP EEAR
 
 #define CMD_READROM 0x33
@@ -188,7 +215,7 @@ ISR(INT1_vect)
 		}
 	}
 	else {
-		if (LASTCMD == 0x33) {
+		if (LASTCMD == CMD_READROM) {
 
 			/*
 			 * ~ADDRx & POS == 1 -> ADDRx has a 0 bit which is sent by
@@ -257,7 +284,7 @@ ISR(INT1_vect)
 				asm volatile ("out %0, r29" : : "M" (_SFR_IO_ADDR(BYTE)));
 			}
 		}
-		else if (LASTCMD == 0xf0) {
+		else if (LASTCMD == CMD_SEARCHROM) {
 
 			if (((SEARCHSTEP == SEARCHSTEP_BIT) && (BYTE & POS))
 					|| ((SEARCHSTEP == SEARCHSTEP_INV) && !(BYTE & POS))) {

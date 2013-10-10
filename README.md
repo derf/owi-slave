@@ -19,7 +19,8 @@ Successfully tested on a DS2482-100 Single Channel 1-Wire Master.
 Tests with a commercially available iButton reader will follow soon.
 
 * Read ROM (0x33) with 64bit identifier
-* Search ROM (0xf0) with 64bit identifier
+* Search ROM (0xf0) with 64bit identifier -- does not yet check the master
+  direction indicator, though, so only useful on a one-device bu
 
 ## TODO
 

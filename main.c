@@ -53,8 +53,6 @@
  *
  * LCNT = r28 (YL), r29 (YH)
  */
-
-
 #define LCNTH GPIOR2
 #define LCNTL GPIOR1
 
@@ -64,6 +62,14 @@
 #define POS OCR1A
 #define APOS OCR1B
 #define BYTE EEDR
+#define SEARCHSTEP EEAR
+
+#define CMD_READROM 0x33
+#define CMD_SEARCHROM 0xf0
+
+#define SEARCHSTEP_BIT 0
+#define SEARCHSTEP_INV 1
+#define SEARCHSTEP_DIRECTION 2
 
 
 #define delay_us_Y(delay) \
@@ -176,7 +182,7 @@ ISR(INT1_vect)
 				POS = 1;
 				APOS = 0;
 				BYTE = ~ADDR8;
-				EEAR = 0;
+				SEARCHSTEP = SEARCHSTEP_BIT;
 				EIFR |= _BV(INTF1);
 			}
 		}
@@ -253,8 +259,8 @@ ISR(INT1_vect)
 		}
 		else if (LASTCMD == 0xf0) {
 
-			if (((EEAR == 0) && (BYTE & POS))
-					|| ((EEAR == 1) && !(BYTE & POS))) {
+			if (((SEARCHSTEP == SEARCHSTEP_BIT) && (BYTE & POS))
+					|| ((SEARCHSTEP == SEARCHSTEP_INV) && !(BYTE & POS))) {
 				DDRD = _BV(PD3);
 
 				delay_us_Y(15);
@@ -263,15 +269,15 @@ ISR(INT1_vect)
 				asm volatile ("wdr");
 				EIFR |= _BV(INTF1);
 			}
-			if (EEAR < 2) {
-				EEAR++;
+			if (SEARCHSTEP < SEARCHSTEP_DIRECTION) {
+				SEARCHSTEP++;
 			}
 			else if (POS != 0x80) {
 				POS <<= 1;
-				EEAR = 0;
+				SEARCHSTEP = SEARCHSTEP_BIT;
 			}
 			else {
-				EEAR = 0;
+				SEARCHSTEP = SEARCHSTEP_BIT;
 				POS = 1;
 
 				/*

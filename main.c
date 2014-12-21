@@ -10,6 +10,16 @@
  */
 
 
+/*
+ * +----- NOTE ------ NOTE ------ NOTE ------ NOTE ------ NOTE -----+
+ * |                                                                |
+ * |     This code is deprecated and no longer maintained.          |
+ * |     It is only kept as a reference for main.S                  |
+ * |     Please refer to main.S for the up-to-date implementation   |
+ * |                                                                |
+ * +----- NOTE ------ NOTE ------ NOTE ------ NOTE ------ NOTE -----+
+ */
+
 
 /*
  * Set the 64bit ID (including 8bit CRC) here, in the order in which they are

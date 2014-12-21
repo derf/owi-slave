@@ -1,27 +1,39 @@
 # owi-slave
 
 Implementation of an One Wire Interface slave device on an ATTiny 2313A without
-external clock. Work-in-progress.
+external clock.
 
 Though the schematic suggests bus-powered operation, the AVR's power
-consumption may be too high for this to work. If connecting the AVR causes the
-bus voltage to drop below 3V, consider replacing the capacitors with a ~4.5V
-battery. Do not use a mains power supply -- it may not have the same GND as
-the 1-Wire bus.
+consumption is probably too high for this to work. If connecting the AVR causes
+the bus voltage to drop below 3V, consider replacing the capacitors with a
+~4.5V battery. Do not use a mains power supply -- it may not have the same
+ground level as the 1-Wire bus.
 
 # Building
+
+set the desired onewire address in main.S. then run
 
     make && sudo make flash
 
 ## supported features
 
-Successfully tested on a DS2482-100 Single Channel 1-Wire Master.
-Tests with a commercially available iButton reader will follow soon.
+### READ ROM (0x33)
 
-* Read ROM (0x33) with 64bit identifier
-* Search ROM (0xf0) with 64bit identifier -- does not yet check the master
-  direction indicator, though, so only useful on a one-device bu
+Works fine. Successfully tested on:
+
+* DS2482-100 Single Channel 1-Wire Master
+* IBL USB iButton reader
+
+### SEARCH ROM (0xf0)
+
+the code in main.c works on one-device buses, the code in main.S was not tested
+yet. SEARCH ROM on a multi-device bus does not work.
+
+Successfully tested on:
+
+* DS2482-100 Single Channel 1-Wire Master
 
 ## TODO
 
-* Overdrive Read ROM / Search ROM
+* test SEARCH ROM
+* implement readout of master direction bit in SEARCH ROM

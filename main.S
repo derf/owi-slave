@@ -1,20 +1,19 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
-/*
- * Onewire iButton / SmartButton slave.  Has the 64bit ID set below.
- *
- * Tested and working with a DS2482. Should mostly adhere to the standard,
- * but nothing is guaranteed.
- */
 
-/*
- * Set the 64bit ID (including 8bit CRC) here, in the order in which they are
- * printed on the button (see
- * <https://wiki.chaosdorf.de/images/f/fc/Smartbutton.jpg>).
- * Note: The bytes are sent in reversed order. This has also been observed
- * on off-the-shelf smartbuttons / iButtons.
- */
+; Onewire iButton / SmartButton slave.  Has the 64bit ID set below.
+;
+; Tested and working with a DS2482-100 and an IBL USB iButton reader. Should
+; mostly adhere to the standard, but nothing is guaranteed.
+
+
+; Set the 64bit ID (including 8bit CRC) here, in the order in which they are
+; printed on the button (see
+; <https://wiki.chaosdorf.de/images/f/fc/Smartbutton.jpg>).
+; Note: The bytes are sent in reversed order. This has also been observed
+; on off-the-shelf smartbuttons / iButtons.
+
 #define ADDR1 0xC4
 #define ADDR2 0x00
 #define ADDR3 0x00
@@ -24,65 +23,53 @@
 #define ADDR7 0x04
 #define ADDR8 0x01
 
-/*
- * You should not need to change things below, unless you're not using PD3
- * as OWI data pin.
- */
+
+; ==========================================================================
+; You should not need to change things below, unless you're not using PD3
+; as OWI data pin.
+; ==========================================================================
 
 
-/*
- * RAM access is time-expensive and requires the X / Y / Z registers. Since
- * we have neither time nor many available registers (Y and Z are used
- * otherwise during the main loop), all program variables are saved in
- * registers.
- *
- * The LCNT registers count how many microseconds have passed
- * since the last low-to-high / high-to-low transition. In the main loop,
- * only r28 and r29 (Y) are incremented (precisely once per microsecond),
- * their GPIO counterparts are used in the ISR and synced with the registers
- * both at start and end.
- *
- * Note: The compiler knows that these registers are forbiden thanks to
- * -ffixed-28 -ffixed-29
- *
- * LCNT = r28 (YL), r29 (YH)
- */
+; Register summary:
+; r1:  NULLREG - constant 0 (set up by avr-gcc)
+; r16: temporary
+; r20: LASTCMD
+; r21: BUF
+; r22: POS
+; r23: APOS
+; r24: BYTE
+; r25: SEARCHSTEP
+
+
+; The LCNT registers count how many microseconds have passed
+; since the last low-to-high / high-to-low transition. In the main loop,
+; only r28 and r29 (Y) are incremented (precisely once per microsecond).
+; Note that this requires an AVR operating at 8MHz.
+
 #define LCNTH r29
 #define LCNTL r28
 
-/*
- * The last complete command byte received from the master. Once this is
- * set, we start writing data onto the bus. Reset at bus resets and once a
- * command is done
- */
+; The last complete command byte received from the master. Once this is
+; set, we start writing data onto the bus. Reset at bus resets and once a
+; command is done
 #define LASTCMD r20
 
-/*
- * command buffer, always initialized to 0
- */
+; command buffer, always initialized to 0
 #define BUF r21
 
-/*
- * bitmask for the current buffer (either BUF or BYTE) position.
- * Left-shifted after each bit
- */
+; bitmask for the current buffer (either BUF or BYTE) position.
+; Left-shifted after each bit
 #define POS r22
 
-/*
- * Position in the 8-byte address sequence
- */
+; Position in the 8-byte address sequence
 #define APOS r23
 
-/*
- * current byte in this sequence
- */
+; current byte in this sequence
 #define BYTE r24
 
-/*
- * the SEARCH ROM command consits of three steps: send a bit of our address,
- * send the inverted bit of our address, receive the bit the master chose
- * to proceed with. the current position in this cycle is stored here
- */
+; the SEARCH ROM command consits of three steps: send a bit of our address,
+; send the inverted bit of our address, receive the bit the master chose
+; to proceed with. the current position in this cycle is stored here
 #define SEARCHSTEP r25
 
 #define CMD_READROM 0x33
@@ -97,9 +84,6 @@
 .text
 
 .global main
-
-; r1: 0
-; SPL: set to end of mem by avr-gcc
 
 main:
 	; watchdog reset after ~4 seconds
@@ -134,6 +118,7 @@ main:
 
 	clr LCNTL
 	clr LCNTH
+	; increment LCNT once per microsecond
 loop:
 	adiw LCNTL, 1
 	wdr
@@ -239,17 +224,10 @@ pos_bit_is_null:
 
 pos_is_0x80:
 	ldi POS, 1
-	; Put next ADDRx into BYTE or reset state if we sent all 8
-	; bytes. Again, a RAM array is too expensive, and both
-	; if/elseif and case/when chains are expensive too. What
-	; happens here is the following:
-	;
-	; APOS is stored in r28, BYTE in r29 (both are written
-	; back at the end of the block). Then APOS is checked for
-	; 1 / 2 / 3 /... in turn and the corresponding address set
-	; where appropriate. Since there are no shortcuts, this
-	; block has a constant execution time of 4us
-	; (compared to ~10us with an if/else if chain and -Os)
+	; Put next ADDRx into BYTE or reset state if we sent all 8 bytes.
+	; APOS is checked for 1 / 2 / 3 /... in turn and the corresponding
+	; address set where appropriate. Since there are no shortcuts, this
+	; block has a constant execution time of ~4us
 	inc APOS         ;APOS++
 	cpi APOS, 1
 	brne .+2        ; if (APOS == 1) {

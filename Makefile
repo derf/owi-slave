@@ -6,7 +6,7 @@ AVRNM ?= avr-nm
 AVROBJCOPY ?= avr-objcopy
 AVROBJDUMP ?= avr-objdump
 
-CFLAGS += -mmcu=attiny2313a -DF_CPU=20000000UL
+CFLAGS += -mmcu=attiny2313a -DF_CPU=8000000UL
 #CFLAGS += -gdwarf-2 -fverbose-asm
 CFLAGS += -I. -std=gnu99 -Os -Wall -Wextra -pedantic
 CFLAGS += -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
@@ -25,8 +25,8 @@ AVRFLAGS += -U flash:w:main.hex
 	${AVROBJCOPY} -j .eeprom --set-section-flags=.eeprom="alloc,load" \
 	--change-section-lma .eeprom=0 -O ihex $< $@
 
-main.elf: main.c
-	${AVRCC} ${CFLAGS} -o $@ ${@:.elf=.c} -Wl,-Map=main.map,--cref
+main.elf: main.S
+	${AVRCC} ${CFLAGS} -o $@ ${@:.elf=.S} -Wl,-Map=main.map,--cref
 	avr-size -d $@
 
 program: main.hex main.eep

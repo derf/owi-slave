@@ -224,6 +224,7 @@ pos_bit_is_null:
 
 pos_is_0x80:
 	ldi POS, 1
+	; (1)
 	; Put next ADDRx into BYTE or reset state if we sent all 8 bytes.
 	; APOS is checked for 1 / 2 / 3 /... in turn and the corresponding
 	; address set where appropriate. Since there are no shortcuts, this
@@ -233,22 +234,22 @@ pos_is_0x80:
 	brne .+2        ; if (APOS == 1) {
 	ldi BYTE, ~ADDR7
 	cpi APOS, 2      ; }
-	brne .+2        ; else if (APOS == 2) {
+	brne .+2        ; if (APOS == 2) {
 	ldi BYTE, ~ADDR6
 	cpi APOS, 3      ; }
-	brne .+2        ; else if (APOS == 3) {
+	brne .+2        ; if (APOS == 3) {
 	ldi BYTE, ~ADDR5
 	cpi APOS, 4      ; }
-	brne .+2        ; else if (APOS == 4) {
+	brne .+2        ; if (APOS == 4) {
 	ldi BYTE, ~ADDR4
 	cpi APOS, 5      ; }
-	brne .+2        ; else if (APOS == 5) {
+	brne .+2        ; if (APOS == 5) {
 	ldi BYTE, ~ADDR3
 	cpi APOS, 6      ; }
-	brne .+2        ; else if (APOS == 6) {
+	brne .+2        ; if (APOS == 6) {
 	ldi BYTE, ~ADDR2
 	cpi APOS, 7      ; }
-	brne .+2        ; else if (APOS == 7) {
+	brne .+2        ; if (APOS == 7) {
 	ldi BYTE, ~ADDR1
 	cpi APOS, 8     ; }
 	brne .+4       ; if (APOS == 8) {
@@ -297,7 +298,7 @@ check_pos_else:
 	ldi SEARCHSTEP, SEARCHSTEP_BIT
 	ldi POS, 1
 
-	; see comments above
+	; see (1)
 	inc APOS
 	cpi APOS, 1
 	brne .+2

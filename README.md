@@ -3,11 +3,9 @@
 Implementation of an One Wire Interface slave device on an ATTiny 2313A without
 external clock.
 
-Though the schematic suggests bus-powered operation, the AVR's power
-consumption is probably too high for this to work. If connecting the AVR causes
-the bus voltage to drop below 3V, consider replacing the capacitors with a
-~4.5V battery. Do not use a mains power supply -- it may not have the same
-ground level as the 1-Wire bus.
+At the moment, the code counts time using a busyloop. It is therefore not
+suitable for bus-powered applications and requires a powe source. Do NOT use a
+mains power supply -- it may not have the same ground level as the 1-Wire bus.
 
 # Building
 
